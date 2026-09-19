@@ -52,7 +52,7 @@ class Program
         var connectPacket = "40" + "{\"auth\":" + authJson + "}";
         await _ws.SendAsync(
             new ArraySegment<byte>(Encoding.UTF8.GetBytes(connectPacket)),
-            System.Net.WebSocketMessageType.Text,
+            WebSocketMessageType.Text,
             true,
             CancellationToken.None);
         Console.WriteLine("Socket.IO connect packet terkirim (auth token).");
@@ -60,17 +60,17 @@ class Program
         // Heartbeat task
         _ = Task.Run(async () =>
         {
-            while (_ws?.State == System.Net.WebSocketState.Open)
+            while (_ws?.State == WebSocketState.Open)
             {
                 await Task.Delay(HeartbeatIntervalSeconds * 1000, cts.Token);
                 try
                 {
-                    if (_ws.State == System.Net.WebSocketState.Open)
+                    if (_ws.State == WebSocketState.Open)
                     {
                         var payload = $"2::{DateTime.UtcNow.ToString("o")}";
                         await _ws.SendAsync(
                             new ArraySegment<byte>(Encoding.UTF8.GetBytes(payload)),
-                            System.Net.WebSocketMessageType.Text,
+WebSocketMessageType.Text,
                             true,
                             CancellationToken.None);
                     }
@@ -81,10 +81,10 @@ class Program
 
         // Receive messages
         var buffer = new byte[4096];
-        while (_ws?.State == System.Net.WebSocketState.Open)
+        while (_ws?.State == WebSocketState.Open)
         {
             var result = await _ws.ReceiveAsync(buffer, cts.Token);
-            if (result.MessageType == System.Net.WebSocketMessageType.Close)
+            if (result.MessageType == WebSocketMessageType.Close)
             {
                 await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client shutting down", cts.Token);
                 break;

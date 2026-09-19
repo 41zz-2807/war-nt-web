@@ -83,18 +83,15 @@ Login pertama memakai `admin`/`admin123` (di-seed otomatis saat DB kosong).
 
 `http://SERVER-IP:5173` — login `admin`/`admin123`.
 
-> **PENTING (wajib):** kode dashboard saat ini menetapkan base API ke
-> `http://localhost:3000` ketika dibuka di port `5173`. Untuk LAN, ganti
-> satu baris di `web/public/index.html`:
-
-```js
-// SEBELUM
-const API = is5173 ? 'http://localhost:3000' : location.origin;
-// SESUDAH — pakai hostname yang sedang dibuka kasir (otomatis benar di LAN)
-const API = is5173 ? 'http://' + location.hostname + ':3000' : location.origin;
-```
-
-Lalu bangun ulang: `docker compose -f docker-compose.prod.yml up -d --build web`.
+> Base API dashboard otomatis benar di LAN: kode memakai
+> `location.hostname` (host yang dibuka kasir), bukan `localhost`:
+>
+> ```js
+> const API = is5173 ? 'http://' + location.hostname + ':3000' : location.origin;
+> ```
+>
+> Berarti dashboard yang dibuka dari PC lain di LAN langsung terhubung ke
+> server (`:3000`). Tak perlu ubah kode.
 
 > Arsitektur memakai dua port terpisah: `5173` untuk dashboard (served oleh
 > Node static server di container `billing-web`), `3000` untuk API + WebSocket.

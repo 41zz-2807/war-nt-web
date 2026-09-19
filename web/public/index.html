@@ -306,7 +306,7 @@ th { color:#64748b; font-size:.75rem; text-transform:uppercase; letter-spacing:.
 
 <script>
 const is5173 = location.port === '5173';
-const API = is5173 ? 'http://localhost:3000' : location.origin;
+const API = is5173 ? 'http://' + location.hostname + ':3000' : location.origin;
 
 const errorDiv = document.getElementById('error');
 const toast = document.getElementById('toast');

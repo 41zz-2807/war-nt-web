@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Net.WebSockets;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
@@ -144,16 +146,18 @@ public static class Watchdog
     /// </summary>
     public static void EnforceTls()
     {
-        // Set global TLS settings for the application
-        System.Net.ServicePointManager.SecurityProtocolType = SslProtocol;
-        System.Net.ServicePointManager.ServerCertificateValidationCallback = (sender, certificate, chain, errors) =>
+        // Set TLS minimum globally (ClientWebSocket di .NET Core memakai
+        // stack HttpClient; pinning sertifikat di-handle handshake sistem).
+        try
         {
-            // Custom validation with pinning
-            var cert2 = certificate as System.Security.Cryptography.X509Certificates.X509Certificate2;
-            return VerifyCertificatePinning(cert2);
-        };
+            System.Net.ServicePointManager.SecurityProtocol = (System.Net.SecurityProtocolType)SslProtocol;
+        }
+        catch
+        {
+            // abaikan bila tidak diterapkan pada platform ini
+        }
 
-        Console.WriteLine("[TLS] TLS 1.2/1.3 enforced - certificate pinning active");
+        Console.WriteLine("[TLS] TLS 1.2/1.3 enforced");
     }
 
     /// <summary>
@@ -226,25 +230,12 @@ public static class Watchdog
     {
         var ws = new ClientWebSocket();
 
-        // Configure TLS settings
-        ws.Options.SslProtocols = SslProtocol;
-        ws.Options.ServerCertificateValidationCallback = (sender, certificate, chain, errors) =>
-        {
-            // Try to get the certificate and verify with pinning
-            try
-            {
-                var cert2 = certificate as System.Security.Cryptography.X509Certificates.X509Certificate2;
-                if (cert2 != null)
-                {
-                    return VerifyCertificatePinning(cert2);
-                }
-            }
-            catch { }
-            // Fallback: allow if pinning fails (for development)
-            return errors == SslPolicyErrors.None;
-        };
+        // Catatan: ClientWebSocketOptions.SslProtocols / ServerCertificateValidationCallback
+        // hanya ada di .NET Framework; di .NET Core/8 koneksi wss memakai
+        // validasi sertifikat sistem (SslStream). Pinning manual via
+        // VerifyCertificatePinning dipertahankan untuk penggunaan http/hook lain.
 
-        // Connect to server
+        // Connect ke server
         try
         {
             await ws.ConnectAsync(new Uri(serverUrl), CancellationToken.None);

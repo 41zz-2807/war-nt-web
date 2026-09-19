@@ -66,7 +66,7 @@ curl -s -X POST http://localhost:3000/api/billing/start \
 
 ## Konvensi
 - API endpoint berada di bawah `/api/...`.
-- Web UI memilih base API: `const API = location.port === '5173' ? 'http://localhost:3000' : location.origin;`
+- Web UI memilih base API: `const API = location.port === '5173' ? 'http://' + location.hostname + ':3000' : location.origin;` (otomatis benar di LAN).
 - Container simulator memakai `SERVER_URL=http://server:3000` (nama service, bukan localhost).
 - Bahasa: Indonesian (console/UI/komentar) kecuali nama kode.
 

@@ -56,5 +56,4 @@ docker compose ps                 # 5 container aktif
   dari `.env.prod.example` (`POSTGRES_PASSWORD` wajib).
 - `deploy/backup.sh` — backup Postgres (dump+gzip, retensi 14 hari, cron disarankan).
 - Peta port produksi: `5173` dashboard, `3000` API + WebSocket, tanpa reverse proxy.
-- Sebelum go-live: ganti password default admin/kasir dan terapkan perbaikan
-  base-API LAN di `web/public/index.html` (lihat `PRODUCTION.md` §3.4).
+- Sebelum go-live: ganti password default admin/kasir (lihat `PRODUCTION.md` §4.2).
