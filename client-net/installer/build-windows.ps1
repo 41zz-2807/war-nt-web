@@ -77,8 +77,9 @@ Write-Host ("      config : " + $config)
 Write-Host ""
 
 # --- buat zip untuk ONLINE installer -----------------------------------------
-# Isi zip = folder Release + install-silent.bat/.ps1 + run-hidden.vbs +
-# install.config.example, supaya skrip install-silent.ps1 bisa jalan utuh.
+# Struktur zip harus punya folder Release\ (hasil publish) + skrip instal di
+# akar — persis seperti struktur flashdisk, supaya install-silent.ps1 membaca
+# "$here\Release\client-net.exe".
 $agentDir = Join-Path (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path "server\agent-release"
 $zipPath  = Join-Path $agentDir "billing-client-release.zip"
 Write-Host "[zip] Menyiapkan $zipPath ..." -ForegroundColor Yellow
@@ -88,14 +89,15 @@ if (-not (Test-Path $agentDir)) { New-Item -ItemType Directory -Path $agentDir |
 $stage = Join-Path $PSScriptRoot "_zipstage"
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Path $stage | Out-Null
-Copy-Item (Join-Path $out "*") $stage -Recurse -Force
+New-Item -ItemType Directory -Path (Join-Path $stage "Release") | Out-Null
+Copy-Item (Join-Path $out "*") (Join-Path $stage "Release") -Recurse -Force
 Copy-Item (Join-Path $PSScriptRoot "install-silent.bat")        $stage -Force
 Copy-Item (Join-Path $PSScriptRoot "install-silent.ps1")        $stage -Force
 Copy-Item (Join-Path $PSScriptRoot "run-hidden.vbs")            $stage -Force
 Copy-Item (Join-Path $PSScriptRoot "install.config.example")    $stage -Force
 
-Remove-Item (Join-Path $stage "client-net.dll.config") -ErrorAction SilentlyContinue
-Remove-Item (Join-Path $stage "client-net.pdb") -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $stage "Release\client-net.dll.config") -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $stage "Release\client-net.pdb") -ErrorAction SilentlyContinue
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 
 $parent = (Resolve-Path $stage).Path

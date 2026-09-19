@@ -653,14 +653,22 @@ function buildOnlineInstallerBat() {
     '@echo off',
     'setlocal',
     'title Warnet Billing - Instal Otomatis Agent Client',
+    'echo.',
     '',
     '>nul 2>&1 net session',
     'if errorlevel 1 (',
-    '  echo Meminta hak akses administrator...',
-    '  powershell -NoProfile -Command "Start-Process -FilePath \'%~f0\' -Verb RunAs"',
+    '  cls',
+    '  echo ==============================================',
+    '  echo   WARNET BILLING CLIENT - INSTAL OTOMATIS',
+    '  echo.',
+    '  echo   Memohon hak akses administrator...',
+    '  echo   Klik "Ya" pada jendela UAC yang muncul.',
+    '  echo ==============================================',
+    '  powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -verb RunAs -FilePath \'cmd.exe\' -ArgumentList \'/k\',\'\"%~f0\"\'"',
     '  exit /b',
     ')',
     '',
+    'cls',
     'echo ==============================================',
     'echo   WARNET BILLING CLIENT - INSTAL OTOMATIS',
     'echo   (double click, koneksi server otomatis)',
@@ -670,7 +678,7 @@ function buildOnlineInstallerBat() {
     'set ZIP=%TEMP%\\warnet-client.zip',
     'set DIR=%TEMP%\\warnet-client-install',
     '',
-    'echo [1/3] Mengunduh agen dari server...',
+    'echo [1/3] Mengunduh agen dari server: %SERVER%/agent/billing-client-release.zip',
     'powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -Uri \'%SERVER%/agent/billing-client-release.zip\' -OutFile \'%ZIP%\' -UseBasicParsing } catch { exit 1 }"',
     'if errorlevel 1 (',
     '  echo.',
@@ -679,10 +687,13 @@ function buildOnlineInstallerBat() {
     '  echo   - PC ini bisa menjangkau server (%SERVER%)',
     '  echo   - firewall membuka port 3000',
     '  echo   - release sudah diunggah (lihat dashboard, tab Config)',
+    '  echo.',
     '  pause',
     '  exit /b 1',
     ')',
+    'echo        OK (%ZIP%)',
     '',
+    'echo [2/3] Membongkar & menyiapkan konfigurasi...',
     'if exist "%DIR%" rmdir /s /q "%DIR%"',
     'mkdir "%DIR%"',
     'powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Expand-Archive -Path \'%ZIP%\' -DestinationPath \'%DIR%\' -Force } catch { exit 1 }"',
@@ -694,10 +705,17 @@ function buildOnlineInstallerBat() {
     'echo PCName=' + pc,
     ')',
     '',
-    'echo [2/3] Menjalankan instalasi (silent)...',
+    'echo [3/3] Menjalankan instalasi (silent)...',
     'powershell -NoProfile -ExecutionPolicy Bypass -File "%DIR%\\install-silent.ps1"',
+    'if errorlevel 1 (',
+    '  echo.',
+    '  echo [GAGAL] Instalasi tidak berjalan. Lihat pesan di atas.',
+    '  echo.',
+    '  pause',
+    '  exit /b 1',
+    ')',
     '',
-    'echo [3/3] Membersihkan berkas sementara...',
+    'echo Membersihkan berkas sementara...',
     'if exist "%ZIP%" del "%ZIP%"',
     'if exist "%DIR%" rmdir /s /q "%DIR%"',
     '',
@@ -706,6 +724,7 @@ function buildOnlineInstallerBat() {
     'echo   SELESAI. PC ini sudah online ke server warnet.',
     'echo   Cek status di dashboard kasir (harus hijau).',
     'echo ==============================================',
+    'echo.',
     'pause'
   ].join('\r\n');
 }
@@ -713,7 +732,8 @@ function buildOnlineInstallerBat() {
 function downloadOnlineInstaller() {
   try {
     const bat = buildOnlineInstallerBat();
-    const blob = new Blob(['\ufeff' + bat], { type: 'text/bat;charset=utf-8' });
+    // TANPA BOM: cmd.exe tersendat membaca UTF-8 BOM di baris pertama .bat.
+    const blob = new Blob([bat], { type: 'text/plain;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'install-otomatis-' + (el('instPCName').value.trim() || 'PC').replace(/[\/\\:,*?"<>|]/g, '_') + '.bat';
