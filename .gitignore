@@ -1,0 +1,23 @@
+# Node
+node_modules/
+dist/
+build/
+
+# .NET publish output (hasil build Windows client)
+Release/
+bin/
+obj/
+
+# Environment & secrets (JANGAN commit)
+.env
+.env.*
+!.env.prod.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Backup database
+*.sql.gz
+/backups/

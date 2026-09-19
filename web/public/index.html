@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Warnet Billing System</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; }
+
+.login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); padding:1rem; }
+.login-card { background:#fff; padding:2rem 2.5rem; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,.15); width:100%; max-width:400px; color:#1e293b; }
+.login-card h1 { text-align:center; margin-bottom:1.5rem; color:#1e40af; font-size:1.4rem; }
+.form-group { margin-bottom:1rem; }
+.form-group label { display:block; margin-bottom:.4rem; font-weight:600; color:#334155; font-size:.9rem; }
+.form-group input, .field select, .field input { width:100%; padding:.65rem; border:2px solid #e2e8f0; border-radius:6px; font-size:.95rem; background:#fff; color:#1e293b; }
+.form-group input:focus, .field select:focus, .field input:focus { outline:none; border-color:#1e40af; }
+
+.btn { padding:.6rem 1rem; border:none; border-radius:8px; font-size:.9rem; font-weight:700; cursor:pointer; transition:filter .15s; }
+.btn:hover { filter:brightness(1.1); }
+.btn-primary { background:#1e40af; color:#fff; }
+.btn-success { background:#16a34a; color:#fff; }
+.btn-danger { background:#dc2626; color:#fff; }
+.btn-warn { background:#d97706; color:#fff; }
+.btn-gray { background:#475569; color:#fff; }
+.btn-sm { padding:.35rem .7rem; font-size:.8rem; }
+.btn-block { width:100%; display:block; }
+
+.error { background:#fecaca; border:1px solid #fca5a5; color:#991b1b; padding:.7rem; border-radius:8px; margin-bottom:1rem; display:none; font-size:.9rem; }
+.toast { position:fixed; top:1rem; right:1rem; background:#16a34a; color:#fff; padding:.75rem 1.25rem; border-radius:8px; box-shadow:0 5px 15px rgba(0,0,0,.3); z-index:2000; display:none; font-size:.9rem; }
+.modal-mask { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:1500; display:none; align-items:center; justify-content:center; padding:1rem; }
+.modal { background:#1e293b; border:1px solid #334155; border-radius:12px; padding:1.5rem; width:100%; max-width:480px; max-height:90vh; overflow:auto; }
+.modal h3 { margin-bottom:1rem; color:#93c5fd; }
+.modal .field label { color:#94a3b8; }
+
+#app { display:none; }
+.app-header { background:#1e293b; border-bottom:1px solid #334155; padding:.9rem 1.5rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.5rem; }
+.app-header h2 { font-size:1.15rem; color:#fff; }
+.user-badge { display:flex; align-items:center; gap:.75rem; font-size:.9rem; }
+.role-pill { background:rgba(255,255,255,.12); padding:.25rem .75rem; border-radius:999px; font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; color:#93c5fd; }
+
+.tabs { display:flex; gap:.5rem; padding:.75rem 1.5rem; background:#0f172a; border-bottom:1px solid #1e293b; position:sticky; top:0; z-index:100; flex-wrap:wrap; }
+.tabs .tab { padding:.5rem 1.1rem; border-radius:999px; background:#1e293b; color:#94a3b8; cursor:pointer; font-size:.9rem; font-weight:600; border:none; }
+.tabs .tab.active { background:#2563eb; color:#fff; }
+
+.main { padding:1.25rem 1.5rem; max-width:1400px; margin:0 auto; }
+
+.stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:.75rem; margin-bottom:1.25rem; }
+.stat-card { background:#1e293b; border:1px solid #334155; border-radius:12px; padding:1rem; text-align:center; }
+.stat-value { font-size:1.9rem; font-weight:800; color:#93c5fd; }
+.stat-label { margin-top:.25rem; color:#64748b; font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; }
+
+.pc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:1rem; }
+.pc-card { background:linear-gradient(160deg,#1e293b,#172033); border:1px solid #334155; border-radius:14px; padding:1rem; transition:box-shadow .2s,border-color .2s; }
+.pc-card.active { border-color:#22c55e; box-shadow:0 0 0 1px #22c55e55, 0 8px 24px -12px rgba(34,197,94,.4); }
+.pc-card.offline { opacity:.75; }
+.pc-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:.25rem; }
+.pc-name { font-weight:800; font-size:1.05rem; color:#fff; letter-spacing:.02em; }
+.pc-del { background:none; border:none; color:#64748b; font-size:1rem; cursor:pointer; padding:.15rem .4rem; border-radius:6px; }
+.pc-del:hover { color:#f87171; background:#334155; }
+.pc-meta { display:flex; align-items:center; gap:.5rem; font-size:.8rem; color:#94a3b8; margin-bottom:.6rem; flex-wrap:wrap; }
+.dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+.dot.on { background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.25); }
+.dot.off { background:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.2); }
+.badge { padding:.22rem .55rem; border-radius:999px; font-size:.72rem; font-weight:700; }
+.badge.aktif { background:#dcfce7; color:#15803d; }
+.badge.kosong { background:#fee2e2; color:#b91c1c; }
+.badge.expired { background:#fef3c7; color:#92600a; }
+.pc-timer { font-size:2rem; font-weight:800; text-align:center; letter-spacing:.06em; color:#93c5fd; font-variant-numeric:tabular-nums; margin:.4rem 0; }
+.pc-timer.habis { color:#f87171; }
+.pc-info { text-align:center; color:#64748b; font-size:.8rem; margin-bottom:.75rem; min-height:1.1em; }
+.pc-actions { display:flex; gap:.5rem; }
+.pc-actions .btn { flex:1; }
+.add-card { min-height:230px; display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; background:transparent; border:2px dashed #334155; border-radius:14px; color:#64748b; cursor:pointer; font-size:.95rem; transition:all .2s; }
+.add-card:hover { border-color:#3b82f6; color:#93c5fd; background:rgba(59,130,246,.06); }
+.add-form { display:flex; flex-direction:column; gap:.5rem; width:100%; padding:1rem; }
+
+.view { display:none; }
+.view.active { display:block; }
+.card { background:#1e293b; border:1px solid #334155; border-radius:12px; padding:1.25rem; margin-bottom:1.25rem; }
+.card h3 { margin-bottom:.9rem; color:#93c5fd; font-size:1.02rem; }
+.header-row { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem; }
+.header-row h3 { margin:0; }
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; }
+th,td { padding:.6rem; text-align:left; border-bottom:1px solid #334155; font-size:.86rem; }
+th { color:#64748b; font-size:.75rem; text-transform:uppercase; letter-spacing:.04em; }
+.form-row { display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-end; }
+.field { flex:1; min-width:140px; }
+.field label { display:block; margin-bottom:.3rem; font-size:.82rem; font-weight:600; color:#94a3b8; }
+.mini-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(105px,1fr)); gap:.4rem; }
+.mini-grid button { padding:.45rem; border:1px solid #334155; background:#0f172a; color:#cbd5e1; border-radius:8px; cursor:pointer; font-size:.82rem; }
+.mini-grid button.sel { border-color:#3b82f6; background:#1e40af22; color:#93c5fd; font-weight:700; }
+.mini-grid button:hover { border-color:#3b82f6; }
+.hidden { display:none !important; }
+.muted { color:#64748b; font-size:.82rem; }
+.mt-1 { margin-top:1rem; }
+.code-box { margin-top:1rem; text-align:center; font-size:1.9rem; font-weight:800; letter-spacing:.2em; color:#4ade80; background:#052e16; border:2px dashed #22c55e; border-radius:10px; padding:1rem; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginPage" class="login-wrap">
+  <div class="login-card">
+    <h1>Warnet Billing System</h1>
+    <div id="error" class="error" role="alert"></div>
+    <form id="loginForm">
+      <div class="form-group"><label>Username</label><input type="text" id="username" autocomplete="off" /></div>
+      <div class="form-group"><label>Password</label><input type="password" id="password" /></div>
+      <button type="submit" class="btn btn-primary btn-block">Masuk Login</button>
+    </form>
+    <p class="muted" style="text-align:center;margin-top:1rem;color:#64748b;">admin/admin123 &middot; kasir/admin123</p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="app-header">
+    <h2>Warnet Billing System</h2>
+    <div class="user-badge">
+      <span id="currentUser">-</span>
+      <span id="roleBadge" class="role-pill">-</span>
+      <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-view="pcs" onclick="showView('pcs')">PC / Kartu</button>
+    <button class="tab" data-view="voucher" onclick="showView('voucher')">Voucher</button>
+    <button class="tab" data-view="member" onclick="showView('member')">Member</button>
+    <button class="tab" data-view="close" onclick="showView('close')">Tutup Hari</button>
+  </div>
+
+  <div class="main">
+
+    <!-- PC GRID -->
+    <div id="view-pcs" class="view active">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value" id="sActive">0</div><div class="stat-label">Sesi Aktif</div></div>
+        <div class="stat-card"><div class="stat-value" id="sTotal">0</div><div class="stat-label">Total Sesi Hari Ini</div></div>
+        <div class="stat-card"><div class="stat-value" id="sOnline">0</div><div class="stat-label">PC Terhubung</div></div>
+        <div class="stat-card"><div class="stat-value" id="sKas">Rp 0</div><div class="stat-label">Kas Hari Ini</div></div>
+      </div>
+      <div class="pc-grid" id="pcGrid"></div>
+    </div>
+
+    <!-- VOUCHER -->
+    <div id="view-voucher" class="view">
+      <div class="card">
+        <h3>Jual Voucher &mdash; min Rp 1.000, kelipatan Rp 500, berlaku 90 hari</h3>
+        <div class="form-row">
+          <div class="field">
+            <label>Harga (Rp)</label>
+            <div class="mini-grid" id="voucherQuick">
+              <button data-a="1000" onclick="pickVoucher(this)">Rp 1.000</button>
+              <button data-a="1500" onclick="pickVoucher(this)">Rp 1.500</button>
+              <button data-a="2000" onclick="pickVoucher(this)">Rp 2.000</button>
+              <button data-a="3000" class="sel" onclick="pickVoucher(this)">Rp 3.000</button>
+              <button data-a="5000" onclick="pickVoucher(this)">Rp 5.000</button>
+              <button data-a="10000" onclick="pickVoucher(this)">Rp 10.000</button>
+              <button data-a="50000" onclick="pickVoucher(this)">Rp 50.000</button>
+            </div>
+            <input type="number" id="voucherPrice" value="3000" step="500" min="1000" style="margin-top:.5rem;" />
+          </div>
+          <div class="field"><button class="btn btn-success" onclick="jualVoucher()">Cetak Voucher</button></div>
+        </div>
+        <div id="voucherResult" class="code-box hidden"></div>
+      </div>
+      <div class="card">
+        <div class="header-row" style="margin-bottom:.75rem;">
+          <h3>Riwayat Voucher</h3>
+          <button class="btn btn-sm btn-gray" onclick="loadVoucherHistory()">Refresh</button>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Kode</th><th>Harga</th><th>Durasi</th><th>Status</th><th>Dibuat</th><th>Kadaluarsa</th><th>Aksi</th></tr></thead>
+          <tbody id="voucherHistory"></tbody>
+        </table></div>
+        <p class="muted mt-1">Auto-revoke otomatis setelah 90 hari. Bisa juga di-revoke manual.</p>
+      </div>
+    </div>
+
+    <!-- MEMBER -->
+    <div id="view-member" class="view">
+      <div class="card">
+        <h3>Buat Member &mdash; nama + password 4 digit untuk login di PC client</h3>
+        <div class="form-row">
+          <div class="field"><label>Nama Member</label><input type="text" id="memberName" /></div>
+          <div class="field"><label>Password (4 digit angka)</label><input type="number" id="memberPass" placeholder="1234" /></div>
+          <div class="field"><button class="btn btn-primary" onclick="createMember()">Buat Member</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Top-up Member &mdash; min Rp 1.000, kelipatan Rp 500</h3>
+        <div class="form-row">
+          <div class="field"><label>Member</label><select id="topupMember"></select></div>
+          <div class="field"><label>Nominal (Rp)</label><input type="number" id="topupAmount" value="5000" step="500" min="1000" /></div>
+          <div class="field"><button class="btn btn-success" onclick="topUpMember()">Top-up</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="header-row" style="margin-bottom:.75rem;">
+          <h3>Daftar Member</h3>
+          <button class="btn btn-sm btn-gray" onclick="loadMembers()">Refresh</button>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Nama</th><th>Pass</th><th>Saldo (menit)</th><th>Kadaluarsa</th><th>Dibuat</th></tr></thead>
+          <tbody id="memberList"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- TUTUP HARI -->
+    <div id="view-close" class="view">
+      <div class="card">
+        <h3>Tutup Hari</h3>
+        <p class="muted" style="margin-bottom:1rem;">Menutup transaksi hari ini, mengakhiri semua sesi aktif, dan membuat rekap kas.</p>
+        <button class="btn btn-warn" onclick="tutupHari()">Tutup Hari Sekarang</button>
+        <div id="closeResult" class="mt-1"></div>
+      </div>
+      <div class="card">
+        <h3>Tutup Hari Terakhir</h3>
+        <div id="lastClose" class="muted">Belum ada.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- START BILLING MODAL -->
+<div id="startModal" class="modal-mask">
+  <div class="modal">
+    <h3 id="modalTitle">Mulai Sesi</h3>
+    <div class="field"><label>Cara Bayar</label>
+      <select id="payBy">
+        <option value="cash">Cash (Nominal / Jam)</option>
+        <option value="member">Saldo Member</option>
+      </select>
+    </div>
+    <div id="cashFields" style="margin-top:1rem;">
+      <div class="field"><label>Nominal (Rp) &mdash; min 1.000, kelipatan 500</label>
+        <div class="mini-grid">
+          <button data-a="1000" onclick="pickAmount(this)">Rp 1.000</button>
+          <button data-a="3000" class="sel" onclick="pickAmount(this)">Rp 3.000</button>
+          <button data-a="6000" onclick="pickAmount(this)">Rp 6.000</button>
+          <button data-a="10000" onclick="pickAmount(this)">Rp 10.000</button>
+          <button data-a="20000" onclick="pickAmount(this)">Rp 20.000</button>
+        </div>
+        <input type="number" id="amountInput" value="3000" step="500" min="1000" style="margin-top:.5rem;" />
+      </div>
+      <div class="field" style="margin-top:.75rem;"><label>Atau Durasi (jam)</label>
+        <select id="hoursInput">
+          <option value="">- Pakai nominal -</option>
+          <option value="1">1 Jam (Rp 3.000)</option>
+          <option value="2">2 Jam (Rp 6.000)</option>
+          <option value="3">3 Jam (Rp 9.000)</option>
+          <option value="5">5 Jam (Rp 15.000)</option>
+          <option value="10">10 Jam (Rp 30.000)</option>
+        </select>
+      </div>
+    </div>
+    <div id="memberFields" style="margin-top:1rem;display:none;">
+      <div class="field"><label>Member</label><select id="modalMemberPick"></select></div>
+      <div class="field" style="margin-top:.75rem;"><label>Durasi (menit)</label><input type="number" id="memberMinutes" value="60" step="10" min="10" /></div>
+    </div>
+    <div class="muted mt-1" id="modalSummary" style="background:#0f172a;padding:.6rem;border-radius:8px;"></div>
+    <div style="display:flex;gap:.5rem;margin-top:1rem;">
+      <button class="btn btn-success" style="flex:1;" onclick="startBilling()">Mulai &gt;</button>
+      <button class="btn btn-gray" onclick="closeModal()">Batal</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- INSTALLER CONFIG MODAL -->
+<div id="installerModal" class="modal-mask">
+  <div class="modal">
+    <h3 id="instTitle">Konfigurasi Installer Client</h3>
+    <div class="field"><label>Server URL (WebSocket server warnet)</label>
+      <input type="text" id="instServerUrl" placeholder="ws://192.168.1.10:3000/socket.io/" />
+    </div>
+    <div class="field" style="margin-top:.6rem;"><label>Token PC (kredensial unik PC ini)</label>
+      <input type="text" id="instToken" readonly style="background:#0f172a;color:#4ade80;" />
+    </div>
+    <div class="field" style="margin-top:.6rem;"><label>Nama PC</label>
+      <input type="text" id="instPCName" />
+    </div>
+    <p class="muted mt-1" style="line-height:1.5;color:#94a3b8;">
+      File <b>install.config</b> ini dibawa ke PC client memakai flashdisk bersama
+      folder <b>Release</b> + <b>install-silent.bat</b>, lalu jalankan
+      <b>install-silent.bat</b> di PC itu &mdash; PC langsung online ke server.
+      Gunakan token yang <b>berbeda</b> untuk tiap PC.
+    </p>
+    <div style="display:flex;gap:.5rem;margin-top:1rem;flex-wrap:wrap;">
+      <button class="btn btn-success" style="flex:1;" onclick="downloadInstallerConfig()">Download install.config</button>
+      <button class="btn btn-gray" onclick="copyInstallerConfig()">Salin</button>
+      <button class="btn btn-gray" onclick="closeInstallerModal()">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const is5173 = location.port === '5173';
+const API = is5173 ? 'http://localhost:3000' : location.origin;
+
+const errorDiv = document.getElementById('error');
+const toast = document.getElementById('toast');
+let currentUser = null;
+let currentRole = 'kasir';
+let mySocket = null;
+
+let pcList = [];
+let sessions = [];
+let selectedPcId = null;
+
+const el = (id) => document.getElementById(id);
+const showError = (m) => { errorDiv.textContent = m; errorDiv.style.display = 'block'; setTimeout(() => errorDiv.style.display = 'none', 5000); };
+const showToast = (m) => { toast.textContent = m; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 3000); };
+const fmtRp = (n) => 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
+
+async function api(path, method, body) {
+  const opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API + path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || ('Error ' + res.status));
+  return data;
+}
+
+/* ---------- login ---------- */
+el('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = el('username').value.trim();
+  const password = el('password').value.trim();
+  if (!username || !password) return showError('Isi username dan password');
+  try {
+    const d = await api('/api/auth/login', 'POST', { username, password });
+    currentUser = username;
+    currentRole = d.role || (username === 'admin' ? 'admin' : 'kasir');
+    enterApp();
+  } catch (err) { showError(err.message || 'Login gagal'); }
+});
+
+function enterApp() {
+  el('loginPage').style.display = 'none';
+  el('app').style.display = 'block';
+  el('currentUser').textContent = currentUser;
+  el('roleBadge').textContent = currentRole;
+  loadSocketIO().then(connectSocket);
+  showView('pcs');
+  refreshAll();
+  setInterval(refreshAll, 5000);
+  setInterval(tick, 1000);
+}
+
+function logout() {
+  api('/api/auth/logout', 'POST', { username: currentUser }).catch(() => {});
+  if (mySocket) mySocket.disconnect();
+  el('app').style.display = 'none';
+  el('loginPage').style.display = 'flex';
+}
+
+/* ---------- socket ---------- */
+function loadSocketIO() {
+  return new Promise((resolve) => {
+    if (window.io) return resolve();
+    const s = document.createElement('script');
+    s.src = API + '/socket.io/socket.io.js';
+    s.onload = () => resolve();
+    document.head.appendChild(s);
+  });
+}
+function connectSocket() {
+  try {
+    mySocket = io(API, { auth: { web: true } });
+    mySocket.on('pcs:sync', () => softRefresh());
+    mySocket.on('session:started', () => { showToast('Sesi baru dimulai'); softRefresh(); });
+    mySocket.on('session:stopped', () => softRefresh());
+  } catch (e) { console.error(e); }
+}
+
+/* ---------- views ---------- */
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const vv = el('view-' + name);
+  if (vv) vv.classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const tb = document.querySelector('.tab[data-view="' + name + '"]');
+  if (tb) tb.classList.add('active');
+  if (name === 'voucher') loadVoucherHistory();
+  if (name === 'member') loadMembers();
+  if (name === 'close') loadLastClose();
+}
+
+async function refreshAll() {
+  await Promise.all([loadPCs(), loadDashboard(), loadSessions()]);
+}
+function softRefresh() { refreshAll().catch(() => {}); }
+
+/* ---------- dashboard ---------- */
+async function loadDashboard() {
+  try {
+    const d = await api(currentRole === 'admin' ? '/api/admin/dashboard' : '/api/kasir/dashboard');
+    el('sActive').textContent = d.active_sessions;
+    el('sTotal').textContent = d.total_sessions;
+    el('sKas').textContent = d.total_kas != null ? fmtRp(d.total_kas) : '-';
+    el('sOnline').textContent = (d.pc_list || []).filter(p => p.online).length;
+  } catch (e) { console.error(e); }
+}
+
+/* ---------- PC grid ---------- */
+async function loadPCs() {
+  try {
+    const d = await api('/api/pcs');
+    pcList = d.pc_list || [];
+    renderGrid();
+  } catch (e) { console.error(e); }
+}
+
+async function loadSessions() {
+  try {
+    const d = await api('/api/billing/sessions?status=active');
+    sessions = d.sessions || [];
+    renderGrid();
+  } catch (e) { console.error(e); }
+}
+
+function activeFor(pcId) { return sessions.find(s => s.pc_id === pcId); }
+function remaining(s) { return (s && s.expires_at) ? Math.max(0, Math.round((new Date(s.expires_at) - Date.now()) / 1000)) : 0; }
+function mmss(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  const p = (n) => String(n).padStart(2, '0');
+  return (h > 0 ? p(h) + ':' : '') + p(m) + ':' + p(s);
+}
+
+function renderGrid() {
+  const grid = el('pcGrid');
+  const cards = pcList.map(pc => {
+    const s = activeFor(pc.id);
+    const active = !!s;
+    const cls = (pc.online ? '' : 'offline ') + (active ? 'active' : '');
+    const dot = '<span class="dot ' + (pc.online ? 'on' : 'off') + '"></span>';
+    const badge = active ? '<span class="badge aktif">AKTIF</span>' : '<span class="badge kosong">KOSONG</span>';
+    const timerTxt = active ? mmss(remaining(s)) : '--:--';
+    const timerCls = 'pc-timer' + (active && remaining(s) <= 0 ? ' habis' : '');
+    const info = s
+      ? (s.paid_by === 'member' ? 'Member &middot; ' + s.minutes + ' mnt' : fmtRp(s.amount) + ' &middot; ' + s.minutes + ' mnt')
+      : 'Menunggu sesi';
+    const action = active
+      ? '<button class="btn btn-danger btn-sm" onclick="stopBilling(' + s.id + ')">Stop</button>'
+      : '<button class="btn btn-success btn-sm" onclick="openStart(' + pc.id + ')">Start</button>';
+    const cfgBtn = '<button class="btn btn-sm btn-gray" title="Buat install.config installer Windows untuk PC ini" onclick="openInstaller(' + pc.id + ')">Config</button>';
+    const safeName = pc.name.replace(/'/g, "\\'");
+    return '<div class="pc-card ' + cls.trim() + '" title="Token: ' + pc.token + '">' +
+      '<div class="pc-head"><span class="pc-name">' + pc.name + '</span>' +
+      '<button class="pc-del" title="Hapus PC" onclick="deletePC(' + pc.id + ',\'' + safeName + '\')">&times;</button></div>' +
+      '<div class="pc-meta">' + dot + ' ' + (pc.online ? 'online' : 'offline') + ' ' + badge + '</div>' +
+      '<div class="' + timerCls + '" id="timer-' + pc.id + '">' + timerTxt + '</div>' +
+      '<div class="pc-info">' + info + '</div>' +
+      '<div class="pc-actions">' + action + cfgBtn + '</div>' +
+      '</div>';
+  }).join('');
+
+  const addCard = '<div class="add-card" id="addCardZone">' +
+    '<div id="addCardIdle"><div style="font-size:2rem;margin-bottom:.3rem;">+</div>Tambah PC / Kartu</div>' +
+    '<div id="addCardForm" class="add-form hidden">' +
+    '<input type="text" id="newPCName" placeholder="contoh: PC-11" style="width:100%;padding:.6rem;border:2px solid #334155;background:#0f172a;color:#fff;border-radius:8px;" />' +
+    '<button class="btn btn-primary btn-sm" onclick="addPC()">Tambah</button>' +
+    '</div></div>';
+
+  grid.innerHTML = cards + addCard;
+  el('addCardZone').onclick = () => {
+    el('addCardIdle').style.display = 'none';
+    el('addCardForm').classList.remove('hidden');
+    el('newPCName').focus();
+  };
+}
+
+function tick() {
+  pcList.forEach(pc => {
+    const t = el('timer-' + pc.id);
+    if (!t) return;
+    const s = activeFor(pc.id);
+    if (!s) { t.textContent = '--:--'; t.className = 'pc-timer'; return; }
+    const r = remaining(s);
+    t.textContent = mmss(r);
+    t.className = 'pc-timer' + (r <= 0 ? ' habis' : '');
+  });
+}
+
+/* ---------- billing ---------- */
+function openStart(pcId) {
+  selectedPcId = pcId;
+  const pc = pcList.find(p => p.id === pcId);
+  el('modalTitle').textContent = 'Mulai Sesi - ' + (pc ? pc.name : '');
+  onPayByChange();
+  updateModalSummary();
+  el('startModal').style.display = 'flex';
+}
+function closeModal() { el('startModal').style.display = 'none'; }
+
+el('payBy').addEventListener('change', onPayByChange);
+function onPayByChange() {
+  const m = el('payBy').value === 'member';
+  el('cashFields').style.display = m ? 'none' : 'block';
+  el('memberFields').style.display = m ? 'block' : 'none';
+  updateModalSummary();
+}
+el('amountInput').addEventListener('input', updateModalSummary);
+el('hoursInput').addEventListener('change', updateModalSummary);
+el('memberMinutes').addEventListener('input', updateModalSummary);
+
+function pickAmount(btn) {
+  document.querySelectorAll('#startModal .mini-grid button').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  el('amountInput').value = Number(btn.dataset.a);
+  updateModalSummary();
+}
+function pickVoucher(btn) {
+  document.querySelectorAll('#voucherQuick button').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  el('voucherPrice').value = Number(btn.dataset.a);
+}
+
+function updateModalSummary() {
+  const sum = el('modalSummary');
+  if (el('payBy').value === 'member') {
+    const mnt = Number(el('memberMinutes').value) || 0;
+    sum.innerHTML = 'Saldo member dipakai: <b>' + mnt + ' menit</b>';
+    return;
+  }
+  const hours = el('hoursInput').value;
+  if (hours) {
+    sum.innerHTML = 'Durasi <b>' + hours + ' jam</b> = ' + (Number(hours) * 60) + ' menit &middot; Biaya <b>' + fmtRp(Number(hours) * 3000) + '</b>';
+    return;
+  }
+  const amt = Number(el('amountInput').value);
+  sum.innerHTML = 'Nominal <b>' + fmtRp(amt) + '</b> &rarr; <b>' + Math.round(amt / 1000 * 20) + ' menit</b>';
+}
+
+async function startBilling() {
+  if (!selectedPcId) return;
+  const body = { pc_id: selectedPcId, username: currentUser };
+  if (el('payBy').value === 'member') {
+    body.member_id = Number(el('modalMemberPick').value);
+    body.minutes = Number(el('memberMinutes').value) || 60;
+  } else if (el('hoursInput').value) {
+    body.hours = Number(el('hoursInput').value);
+  } else {
+    body.amount = Number(el('amountInput').value);
+  }
+  try {
+    const d = await api('/api/billing/start', 'POST', body);
+    const pc = pcList.find(p => p.id === selectedPcId);
+    showToast(d.message + ' - timer mulai di ' + (pc ? pc.name : ''));
+    closeModal();
+    await softRefresh();
+  } catch (err) { showError(err.message); }
+}
+
+async function stopBilling(sessionId) {
+  if (!confirm('Stop sesi ini?')) return;
+  try {
+    const d = await api('/api/billing/stop', 'POST', { session_id: sessionId, username: currentUser });
+    showToast(d.message);
+    await softRefresh();
+  } catch (err) { showError(err.message); }
+}
+
+/* ---------- PC CRUD ---------- */
+async function addPC() {
+  const name = el('newPCName').value.trim();
+  if (!name) return showError('Isi nama PC');
+  try {
+    const d = await api('/api/pcs', 'POST', { name, username: currentUser });
+    showToast(d.message + ' - online setelah agen dipasang');
+    el('newPCName').value = '';
+    el('addCardIdle').style.display = 'block';
+    el('addCardForm').classList.add('hidden');
+    await softRefresh();
+  } catch (err) { showError(err.message); }
+}
+
+async function deletePC(id, name) {
+  if (!confirm('Hapus PC ' + name + '?')) return;
+  try {
+    const d = await api('/api/pcs/' + id, 'DELETE', { username: currentUser });
+    showToast(d.message);
+    await softRefresh();
+  } catch (err) { showError(err.message); }
+}
+
+/* ---------- installer config (token untuk PC client Windows) ---------- */
+function detectServerWs() {
+  return 'ws://' + location.hostname + ':3000/socket.io/';
+}
+
+function openInstaller(pcId) {
+  const pc = pcList.find(p => p.id === pcId);
+  if (!pc) return;
+  el('instTitle').textContent = 'Konfigurasi Installer - ' + pc.name;
+  el('instServerUrl').value = detectServerWs();
+  el('instToken').value = pc.token;
+  el('instPCName').value = pc.name;
+  el('installerModal').style.display = 'flex';
+}
+function closeInstallerModal() { el('installerModal').style.display = 'none'; }
+
+function buildInstallerConfig() {
+  const server = el('instServerUrl').value.trim();
+  const token = el('instToken').value.trim();
+  const pc = el('instPCName').value.trim();
+  if (!server || !token) throw new Error('Server URL dan Token wajib diisi.');
+  return '# ============================================================================\n' +
+    '#  install.config - konfigurasi agen client warnet (PC: ' + pc + ')\n' +
+    '#  Dibuat otomatis dari dashboard kasir.\n' +
+    '#  Taruh bersama folder Release + install-silent.bat di flashdisk,\n' +
+    '#  lalu jalankan install-silent.bat di PC client ini.\n' +
+    '# ============================================================================\n\n' +
+    'ServerUrl=' + server + '\n\n' +
+    'Token=' + token + '\n\n' +
+    'PCName=' + pc + '\n';
+}
+
+function downloadInstallerConfig() {
+  try {
+    const content = buildInstallerConfig();
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'install.config';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('install.config terdownload - bawa ke PC client bersama installer');
+  } catch (err) { showError(err.message); }
+}
+
+async function copyInstallerConfig() {
+  try {
+    await navigator.clipboard.writeText(buildInstallerConfig());
+    showToast('install.config disalin ke clipboard');
+  } catch (err) { showError('Gagal menyalin: ' + err.message); }
+}
+
+/* ---------- voucher ---------- */
+async function jualVoucher() {
+  try {
+    const price = Number(el('voucherPrice').value);
+    const d = await api('/api/voucher/jual', 'POST', { price, username: currentUser });
+    const box = el('voucherResult');
+    box.classList.remove('hidden');
+    box.textContent = String(d.voucher.code);
+    showToast('Voucher ' + d.voucher.code + ' terjual');
+    await loadVoucherHistory();
+  } catch (err) { showError(err.message); }
+}
+
+async function loadVoucherHistory() {
+  try {
+    const d = await api('/api/voucher/history');
+    const st = { active: '<span class="badge aktif">aktif</span>', used: '<span class="badge" style="background:#fce7f3;color:#be185d;">terpakai</span>', revoked: '<span class="badge" style="background:#e0e7ff;color:#4338ca;">revoked</span>', expired: '<span class="badge expired">expired</span>' };
+    const rows = (d.vouchers || []).map(v => {
+      const action = v.status === 'active'
+        ? '<button class="btn btn-danger btn-sm" onclick="revokeVoucher(' + v.id + ',\'' + v.code + '\')">Revoke</button>'
+        : '<span class="muted">-</span>';
+      return '<tr><td style="letter-spacing:.15em;font-weight:700;">' + v.code + '</td><td>' + fmtRp(v.price) + '</td><td>' + v.minutes + ' mnt</td>' +
+        '<td>' + (st[v.status] || v.status) + '</td><td>' + new Date(v.created_at).toLocaleString('id-ID') + '</td>' +
+        '<td>' + new Date(v.expires_at).toLocaleString('id-ID') + '</td><td>' + action + '</td></tr>';
+    }).join('');
+    el('voucherHistory').innerHTML = rows || '<tr><td colspan="7" class="muted">Belum ada voucher.</td></tr>';
+  } catch (err) { showError(err.message); }
+}
+
+async function revokeVoucher(id, code) {
+  if (!confirm('Revoke voucher ' + code + '?')) return;
+  try {
+    const d = await api('/api/voucher/revoke/' + id, 'POST', { username: currentUser });
+    showToast(d.message);
+    await loadVoucherHistory();
+  } catch (err) { showError(err.message); }
+}
+
+/* ---------- member ---------- */
+async function createMember() {
+  const name = el('memberName').value.trim();
+  const pwd = el('memberPass').value.trim();
+  if (!name) return showError('Isi nama member');
+  if (!/^\d{4}$/.test(pwd)) return showError('Password harus 4 digit angka');
+  try {
+    const d = await api('/api/member/create', 'POST', { name, password: pwd, username: currentUser });
+    showToast(d.message);
+    el('memberName').value = '';
+    el('memberPass').value = '';
+    await loadMembers();
+  } catch (err) { showError(err.message); }
+}
+
+async function loadMembers() {
+  try {
+    const d = await api('/api/member/list');
+    const rows = (d.members || []).map(m => {
+      const exp = m.expiry_date ? new Date(m.expiry_date).toLocaleDateString('id-ID') : '-';
+      return '<tr><td>' + m.name + '</td><td>' + m.password_digit + '</td><td><b>' + m.balance_minutes + '</b> mnt</td><td>' + exp + '</td><td>' + new Date(m.created_at).toLocaleDateString('id-ID') + '</td></tr>';
+    }).join('');
+    el('memberList').innerHTML = rows || '<tr><td colspan="5" class="muted">Belum ada member.</td></tr>';
+    const opts = ['<option value="">- Pilih member -</option>'].concat((d.members || []).map(m => '<option value="' + m.id + '">' + m.name + ' (' + m.balance_minutes + ' mnt)</option>')).join('');
+    el('topupMember').innerHTML = opts;
+    el('modalMemberPick').innerHTML = (d.members || []).map(m => '<option value="' + m.id + '">' + m.name + ' (' + m.balance_minutes + ' mnt)</option>').join('');
+  } catch (err) { showError(err.message); }
+}
+
+async function topUpMember() {
+  const id = Number(el('topupMember').value);
+  const amount = Number(el('topupAmount').value);
+  if (!id) return showError('Pilih member');
+  try {
+    const d = await api('/api/member/topup', 'POST', { member_id: id, amount, username: currentUser });
+    showToast(d.message);
+    await loadMembers();
+  } catch (err) { showError(err.message); }
+}
+
+/* ---------- tutup hari ---------- */
+async function tutupHari() {
+  if (!confirm('Yakin tutup hari sekarang? Semua sesi aktif akan dimatikan.')) return;
+  try {
+    const d = await api('/api/tutup-hari', 'POST', {});
+    const t = d.tutup || {};
+    let detailHTML = '';
+    if (t.detail && t.detail.by_type && t.detail.by_type.length) {
+      detailHTML = t.detail.by_type.map(r => '<tr><td>' + r.type + '</td><td>' + fmtRp(r.jml) + '</td><td>' + r.n + 'x</td></tr>').join('');
+    }
+    el('closeResult').innerHTML =
+      '<h4 style="margin:.5rem 0;color:#93c5fd;">Rekap ' + new Date(t.closed_at).toLocaleString('id-ID') + '</h4>' +
+      '<p>Total Kas: <b>' + fmtRp(t.total_kas) + '</b> &mdash; ' + t.total_transaksi + ' transaksi</p>' +
+      (detailHTML ? '<table style="margin-top:.75rem;"><thead><tr><th>Jenis</th><th>Jumlah</th><th>Jml Trx</th></tr></thead><tbody>' + detailHTML + '</tbody></table>' : '');
+    showToast(d.message);
+  } catch (err) { showError(err.message); }
+}
+
+async function loadLastClose() {
+  try {
+    const d = await api('/api/tutup-hari/last');
+    const t = d.tutup;
+    el('lastClose').innerHTML = t
+      ? new Date(t.closed_at).toLocaleString('id-ID') + ' &mdash; Total Kas <b>' + fmtRp(t.total_kas) + '</b>, ' + t.total_transaksi + ' transaksi'
+      : 'Belum ada.';
+  } catch (err) { console.error(err); }
+}
+</script>
+</body>
+</html>

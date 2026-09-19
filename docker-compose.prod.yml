@@ -1,0 +1,59 @@
+# ============================================================================
+#  Komposisi PRODUKSI Warnet Billing System.
+#  - TANPA simulator (PC client = agen Windows asli)
+#  - Password DB dari .env (lihat .env.prod.example)
+#  - Port DB/Redis TIDAK di-expose (internal Docker saja)
+#
+#  Cara pakai:
+#    cp .env.prod.example .env && nano .env
+#    docker compose -f docker-compose.prod.yml up -d --build
+# ============================================================================
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: billing-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-billing}
+      POSTGRES_USER: ${POSTGRES_USER:-billing_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?wajib diisi di .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # ports:          # TIDAK dibuka ke publik — backup via docker exec
+
+  redis:
+    image: redis:7-alpine
+    container_name: billing-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    # ports:          # TIDAK dibuka ke publik
+
+  server:
+    build:
+      context: ./server
+    container_name: billing-server
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-billing_user}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:-billing}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-development-secret-key-change-in-production}
+      NODE_ENV: ${NODE_ENV:-production}
+    ports:
+      - "3000:3000"   # API + WebSocket untuk agen client PC
+
+  web:
+    build:
+      context: ./web
+    container_name: billing-web
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "5173:80"   # dashboard web (Node static server)
+
+volumes:
+  postgres_data:

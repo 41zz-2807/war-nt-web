@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: billing-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: billing
+      POSTGRES_USER: billing_user
+      POSTGRES_PASSWORD: billing_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: billing-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+
+  server:
+    build:
+      context: ./server
+    container_name: billing-server
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgres://billing_user:billing_pass@postgres:5432/billing
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: development-secret-key-change-in-production
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+
+  web:
+    build:
+      context: ./web
+    container_name: billing-web
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      VITE_API_URL: http://localhost:3000
+      VITE_WS_URL: ws://localhost:3000
+    ports:
+      - "5173:80"
+    volumes:
+      - ./web:/usr/src/app
+
+  simulator:
+    build:
+      context: ./simulator
+    container_name: billing-simulator
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      SERVER_URL: http://server:3000
+      SIM_MAX: "30"
+
+volumes:
+  postgres_data:

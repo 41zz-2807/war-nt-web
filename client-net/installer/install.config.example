@@ -1,0 +1,16 @@
+# ============================================================================
+#  install.config - konfigurasi instalasi agen client warnet
+#  Salin file ini menjadi install.config lalu isi nilainya.
+#  Baris diawali '#' = komentar, diabaikan.
+# ============================================================================
+#
+# URL WebSocket server warnet. Ganti IP dengan IP server billing act
+# Gunakan host LAN (IP server), contoh: ws://192.168.1.10:3000/socket.io/
+ServerUrl=ws://192.168.1.10:3000/socket.io/
+
+# Token rahasia PC ini — ambil dari dashboard kasir
+# (halaman PC Simulasi/Manajemen PC, tombol "Tambah PC" / kolom token).
+Token=GANTI_DENGAN_TOKEN_PC_DARI_DASHBOARD
+
+# Nama identitas PC ini (opsional, default nama komputer Windows).
+PCName=PC-01
