@@ -14,8 +14,10 @@ simulasi PC client, dan agen client Windows (.NET).
 
 ## Cara menjalankan (wajib Docker — host Node.js rusak: ICU dyld error)
 ```bash
-docker compose up -d --build        # bangun ulang & mulai semua (postgres, redis, server, web, simulator)
-docker compose ps                     # cek 5 container aktif
+docker compose up -d --build        # bangun ulang & mulai (postgres, redis, server, web)
+docker compose ps                     # cek 4 container aktif
+# Simulator = profile opsional, default NONAKTIF (agar PC baru tidak otomatis online).
+# Nyalakan hanya saat butuh: docker compose --profile simulator up -d
 ```
 - Web: `http://localhost:5173` (mapped `5173:80`)
 - API: `http://localhost:3000`
@@ -48,12 +50,19 @@ curl -s -X POST http://localhost:3000/api/billing/start \
 - Sumber: `client-net/` — target `net8.0`, dep `System.Configuration.ConfigurationManager`.
 - Build Windows: `client-net/installer/build-windows.ps1` → `dotnet publish -r win-x64`.
 - Paket `.exe`: `WarnetClientSetup.iss` (Inno Setup). Tanpa Inno: `install-silent.bat` (baca `install.config`).
-- Di dashboard web, tiap kartu PC punya tombol **Config** → modal berisi ServerUrl
-  (terdeteksi otomatis dari host yang dibuka kasir), Token PC, PCName → download
-  `install.config` siap pakai atau salin ke clipboard, tinggal dibawa ke PC client
-  bersama installer.
+- Di dashboard web, tiap kartu PC punya tombol **Config** → modal berisi
+  ServerUrl (terdeteksi otomatis dari host yang dibuka kasir), Token PC, PCName.
+  Dua opsi hasil: (1) **Download Instal Otomatis (.bat)** = online installer
+  sekali klik — agen diunduh dari `http://IP:3000/agent/billing-client-release.zip`;
+  (2) **download/copy `install.config`** untuk instal manual flashdisk.
+- Server menyajikan folder `server/agent-release/` secara statis di `/agent`
+  (volume-mounted), dibuat `build-windows.ps1`; cek `GET /api/installer/status`.
 - Instal membuat: folder di `Program Files`, task terjadwal saat logon, registry hardening
   (DisableTaskMgr/NoRun/DisableRegistryTools/DisableCMD), uninstaller membaliknya.
+- Uninstall diminta **OTP dari Telegram**: server kirim kode 6 digit (5 menit,
+  1x pakai, rate-limit 1/menit/PC) bila `TELEGRAM_BOT_TOKEN`+`TELEGRAM_ADMIN_CHAT_ID`
+  terisi; bila kosong → mode dev (`dev_code` di respon) dan uninstall tetap jalan.
+  Endpoint: `/api/otp/status|request|verify`, tabel `otp_codes`.
 
 ## Konvensi
 - API endpoint berada di bawah `/api/...`.

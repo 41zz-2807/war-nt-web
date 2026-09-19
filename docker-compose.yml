@@ -35,8 +35,12 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: development-secret-key-change-in-production
       NODE_ENV: development
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ADMIN_CHAT_ID: ${TELEGRAM_ADMIN_CHAT_ID:-}
     ports:
       - "3000:3000"
+    volumes:
+      - ./server/agent-release:/usr/src/app/agent-release
 
   web:
     build:
@@ -60,6 +64,7 @@ services:
     restart: unless-stopped
     depends_on:
       - server
+    profiles: ["simulator"]
     environment:
       SERVER_URL: http://server:3000
       SIM_MAX: "30"

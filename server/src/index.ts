@@ -1,11 +1,39 @@
 import express from 'express';
 import http from 'http';
+import path from 'path';
+import fs from 'fs';
 import { Server as SocketIOServer } from 'socket.io';
 import bcrypt from 'bcryptjs';
 import { pool, initSchema, randomToken, randomVoucherCode, toMinutes } from './db';
+import { sendTelegram, telegramEnabled, telegramChatLabel } from './telegram';
 
 const app = express();
 app.use(express.json());
+
+// Folder agen client Windows siap-unduh (dari build-windows.ps1).
+const AGENT_DIR = path.join(__dirname, '..', 'agent-release');
+app.use('/agent', express.static(AGENT_DIR));
+app.get('/api/installer/status', (req, res) => {
+  let release_ready = false;
+  let size = 0;
+  try {
+    const p = path.join(AGENT_DIR, 'billing-client-release.zip');
+    if (fs.existsSync(p)) {
+      release_ready = true;
+      size = fs.statSync(p).size;
+    }
+  } catch (e) {
+    // abaikan
+  }
+  res.json({
+    release_ready,
+    size,
+    agent_url: '/agent/billing-client-release.zip',
+    note: release_ready
+      ? null
+      : 'Belum ada release. Bangun di mesin Windows (build-windows.ps1), lalu salin billing-client-release.zip ke server/agent-release/.',
+  });
+});
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -216,6 +244,8 @@ app.post('/api/billing/start', async (req, res) => {
     const { pc_id, hours, minutes, amount, member_id, username } = req.body;
     const pc = await pool.query('SELECT * FROM pcs WHERE id=$1', [Number(pc_id)]);
     if (!pc.rows.length) return res.status(404).json({ message: 'PC tidak ditemukan' });
+    if (!pc.rows[0].online)
+      return res.status(409).json({ message: 'PC sedang OFFLINE — nyalakan agen client dulu sebelum start billing' });
 
     let finalMinutes = 0;
     let finalAmount = 0;
@@ -504,6 +534,92 @@ app.get('/api/audit', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+/* ---------- OTP (uninstall agent via Telegram) ---------- */
+
+const otpRate = new Map<string, number>();
+
+const OTP_TTL_MS = 5 * 60 * 1000; // 5 menit
+const OTP_MIN_INTERVAL_MS = 60 * 1000; // minimal 1 menit antar request per PC
+
+function randomOtp(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+app.get('/api/otp/status', (req, res) => {
+  const en = telegramEnabled();
+  res.json({
+    enabled: en,
+    chat_id: en ? telegramChatLabel() : null,
+  });
+});
+
+app.post('/api/otp/request', async (req, res) => {
+  try {
+    const pc_name = String(req.body.pc_name || '').trim().toUpperCase();
+    const purpose = String(req.body.purpose || 'uninstall');
+    if (!pc_name) return res.status(400).json({ message: 'Nama PC wajib diisi' });
+
+    const last = otpRate.get(pc_name) || 0;
+    if (Date.now() - last < OTP_MIN_INTERVAL_MS)
+      return res.status(429).json({ message: 'Tunggu 1 menit sebelum request OTP lagi' });
+    otpRate.set(pc_name, Date.now());
+
+    const code = randomOtp();
+    const expires = new Date(Date.now() + OTP_TTL_MS);
+    await pool.query(
+      'INSERT INTO otp_codes (code, purpose, ref, expires_at) VALUES ($1,$2,$3,$4)',
+      [code, purpose, pc_name, expires]
+    );
+
+    const text = `🔐 OTP ${purpose} · PC ${pc_name}\nKode: ${code}\nBerlaku 5 menit. Jangan bocorkan.`;
+    const sent = await sendTelegram(text);
+
+    if (telegramEnabled()) {
+      await audit(req.body.username, 'otp:request', 'request OTP ' + purpose + ' PC ' + pc_name);
+      return res.json({ ok: true, message: 'OTP dikirim ke Telegram admin', ttl: OTP_TTL_MS / 1000, sent: sent.ok });
+    }
+    // Telegram belum dikonfigurasi -> mode dev: kode dikembalikan di respon.
+    return res.json({
+      ok: true,
+      dev_code: code,
+      message: 'Telegram belum dikonfigurasi — mode dev, kode tampil di sini',
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.post('/api/otp/verify', async (req, res) => {
+  try {
+    const pc_name = String(req.body.pc_name || '').trim().toUpperCase();
+    const purpose = String(req.body.purpose || 'uninstall');
+    const code = String(req.body.code || '').trim();
+
+    const r = await pool.query(
+      'SELECT * FROM otp_codes WHERE ref=$1 AND purpose=$2 AND used=false AND expires_at > now() ORDER BY created_at DESC LIMIT 1',
+      [pc_name, purpose]
+    );
+    const otp = r.rows[0];
+    if (!otp) return res.status(400).json({ ok: false, message: 'OTP tidak ditemukan / sudah kadaluarsa' });
+    if (otp.code !== code) return res.status(400).json({ ok: false, message: 'Kode OTP salah' });
+
+    await pool.query('UPDATE otp_codes SET used=true WHERE id=$1', [otp.id]);
+    await audit(req.body.username, 'otp:verify', 'verifikasi OTP ' + purpose + ' PC ' + pc_name);
+    res.json({ ok: true, message: 'OTP valid — silakan lanjutkan' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Bersihkan OTP lama (expired/terpakai) — 1x per 6 jam
+setInterval(() => {
+  pool
+    .query("DELETE FROM otp_codes WHERE (used=true OR expires_at < now()) AND created_at < now() - interval '1 day'")
+    .catch(() => {});
+}, 6 * 3600 * 1000);
 
 /* ---------- web socket (client token auth) ---------- */
 

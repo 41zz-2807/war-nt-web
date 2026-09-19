@@ -87,6 +87,16 @@ CREATE TABLE IF NOT EXISTS audit_log (
   details TEXT,
   created_at TIMESTAMP DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS otp_codes (
+  id SERIAL PRIMARY KEY,
+  code VARCHAR(6) NOT NULL,
+  purpose VARCHAR(30) NOT NULL,
+  ref VARCHAR(50),
+  used BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT now(),
+  expires_at TIMESTAMP NOT NULL
+);
 `;
 
 export function randomToken(): string {

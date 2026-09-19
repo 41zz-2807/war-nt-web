@@ -30,6 +30,10 @@ powershell -ExecutionPolicy Bypass -File build-windows.ps1
 ```
 
 Hasil `client-net.exe` + `client-net.dll.config` masuk ke `installer\Release\`.
+Script juga membuat **`server\agent-release\billing-client-release.zip`** —
+paket untuk *online installer* (bagian 4, Opsi C). Letakkan zip itu di folder
+tersebut (sudah otomatis), server langsung menyajikannya di
+`http://<IP-SERVER>:3000/agent/` — cek `http://<IP-SERVER>:3000/api/installer/status`.
 
 ## 3. Konfigurasi
 
@@ -68,6 +72,23 @@ Bisa juga silent dari jarak jauh:
 WarnetClientSetup.exe /VERYSILENT /ServerUrl="ws://192.168.1.10:3000/socket.io/" /Token="abc123" /PCName="PC-01"
 ```
 
+### Opsi C — ONLINE installer (sekali klik, disarankan) 
+Paling praktis untuk banyak PC. Prasyarat: `billing-client-release.zip` sudah
+ada di server (`/api/installer/status` → `release_ready: true`).
+
+1. Dashboard → tab **PC / Kartu** → klik **Config** pada kartu PC.
+2. Klik **Download Instal Otomatis (.bat)** → dapat satu file `.bat` (sudah
+   berisi IP server + token unik PC ini). Dashboard memblokir bila dibuka via
+   `localhost` — wajib buka dashboard via `http://IP-SERVER:5173`.
+3. Bawa file `.bat` ke PC client (flashdisk / email / share folder — cukup 1 file).
+4. Klik dua kali `.bat` → setujui UAC → otomatis: unduh agen dari server,
+   tulis konfigurasi, pasang task & hardening, jalankan agen → PC **online**.
+5. Ulangi langkah 2–4 tiap PC dengan token yang berbeda.
+
+**Alasan si .bat butuh server `:3000` terbuka**: agen diunduh via HTTP dari
+`http://IP-SERVER:3000/agent/billing-client-release.zip` (bukan `5173`). Jika
+client tak bisa akses `:3000`, pakai Opsi A/B (flashdisk).
+
 ## 5. Verifikasi
 
 - Di dashboard kasir: PC muncul **ONLINE (hijau)** saat agen jalan.
@@ -82,9 +103,17 @@ Edit `C:\Program Files\WarnetBillingClient\client-net.dll.config`
 
 ## 7. Uninstall
 
-- Silent: klik **uninstall.bat** (setujui UAC) → task dihapus, hardening
-  dipulihkan, folder dihapus.
+> **Gerbang OTP (jika server dikonfigurasi Telegram).** Sebelum menghapus,
+> uninstaller minta kode OTP 6 digit yang server kirim ke **Telegram admin**.
+> Kode berlaku 5 menit, satu PC di-rate-limit 1 request/menit. Jika server
+> tidak terjangkau atau Telegram belum dikonfigurasi, uninstall tetap bisa
+> dilanjutkan (fallback "tanpa OTP").
+
+- Silent: klik **uninstall.bat** (setujui UAC) → masukkan kode OTP dari
+  Telegram (bila server aktif) → task dihapus, hardening dipulihkan, folder
+  dihapus. Tanpa Telegram/config: lanjut tanpa OTP.
 - Inno: Control Panel → Programs → `Warnet Billing Client Agent` → Uninstall.
+  Wizard menampilkan halaman **Verifikasi OTP** bila server mengaktifkannya.
 
 ---
 

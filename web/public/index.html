@@ -116,6 +116,7 @@ th { color:#64748b; font-size:.75rem; text-transform:uppercase; letter-spacing:.
 
 <!-- APP -->
 <div id="app">
+  <div id="appErr" class="error" role="alert"></div>
   <div class="app-header">
     <h2>Warnet Billing System</h2>
     <div class="user-badge">
@@ -286,13 +287,17 @@ th { color:#64748b; font-size:.75rem; text-transform:uppercase; letter-spacing:.
       <input type="text" id="instPCName" />
     </div>
     <p class="muted mt-1" style="line-height:1.5;color:#94a3b8;">
-      File <b>install.config</b> ini dibawa ke PC client memakai flashdisk bersama
-      folder <b>Release</b> + <b>install-silent.bat</b>, lalu jalankan
-      <b>install-silent.bat</b> di PC itu &mdash; PC langsung online ke server.
-      Gunakan token yang <b>berbeda</b> untuk tiap PC.
+      <b>Cara instan (online installer):</b> klik <b>Download Instal Otomatis (.bat)</b> di
+      bawah, bawa file .bat itu ke PC client (flashdisk), lalu klik dua kali — PC langsung
+      unduh agen dari server, terpasang otomatis &amp; online.
+      <br><b>Cara manual (flashdisk + semua file):</b> download <b>install.config</b>, bawa
+      bersama folder <b>Release</b> + <b>install-silent.bat</b>, jalankan
+      <b>install-silent.bat</b>.
+      Gunakan token yang <b>berbeda</b> untuk tiap PC. <span id="instReleaseNote"></span>
     </p>
     <div style="display:flex;gap:.5rem;margin-top:1rem;flex-wrap:wrap;">
-      <button class="btn btn-success" style="flex:1;" onclick="downloadInstallerConfig()">Download install.config</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="downloadOnlineInstaller()">Download Instal Otomatis (.bat)</button>
+      <button class="btn btn-success" onclick="downloadInstallerConfig()">Download install.config</button>
       <button class="btn btn-gray" onclick="copyInstallerConfig()">Salin</button>
       <button class="btn btn-gray" onclick="closeInstallerModal()">Tutup</button>
     </div>
@@ -305,6 +310,7 @@ const API = is5173 ? 'http://localhost:3000' : location.origin;
 
 const errorDiv = document.getElementById('error');
 const toast = document.getElementById('toast');
+const appErrDiv = document.getElementById('appErr');
 let currentUser = null;
 let currentRole = 'kasir';
 let mySocket = null;
@@ -314,7 +320,13 @@ let sessions = [];
 let selectedPcId = null;
 
 const el = (id) => document.getElementById(id);
-const showError = (m) => { errorDiv.textContent = m; errorDiv.style.display = 'block'; setTimeout(() => errorDiv.style.display = 'none', 5000); };
+// showError tampil di banner area app (bila sudah login) / di box login.
+const showError = (m) => {
+  const target = (el('app').style.display === 'block') ? appErrDiv : errorDiv;
+  target.textContent = m;
+  target.style.display = 'block';
+  setTimeout(() => { target.style.display = 'none'; }, 5000);
+};
 const showToast = (m) => { toast.textContent = m; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 3000); };
 const fmtRp = (n) => 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
 
@@ -543,6 +555,11 @@ function updateModalSummary() {
 
 async function startBilling() {
   if (!selectedPcId) return;
+  const pc = pcList.find(p => p.id === selectedPcId);
+  if (pc && !pc.online) {
+    alert('PC ini sedang tidak aktif — nyalakan agen client dulu.');
+    return;
+  }
   const body = { pc_id: selectedPcId, username: currentUser };
   if (el('payBy').value === 'member') {
     body.member_id = Number(el('modalMemberPick').value);
@@ -605,9 +622,106 @@ function openInstaller(pcId) {
   el('instServerUrl').value = detectServerWs();
   el('instToken').value = pc.token;
   el('instPCName').value = pc.name;
+  el('instReleaseNote').textContent = '';
+  fetch(API + '/api/installer/status').then(r => r.json()).then(s => {
+    if (s.release_ready) {
+      el('instReleaseNote').textContent = '✓ Agen siap diunduh dari server (' +
+        (s.size > 0 ? Math.round(s.size / 1024) + ' KB' : '') + ').';
+      el('instReleaseNote').style.color = '#4ade80';
+    } else {
+      el('instReleaseNote').textContent = '⚠ ' + (s.note || 'Release belum disiapkan.') +
+        ' Tombol .bat belum bisa dipakai.';
+      el('instReleaseNote').style.color = '#fbbf24';
+    }
+  }).catch(() => {});
   el('installerModal').style.display = 'flex';
 }
 function closeInstallerModal() { el('installerModal').style.display = 'none'; }
+
+function detectServerHttp() {
+  return 'http://' + location.hostname + ':3000';
+}
+
+function buildOnlineInstallerBat() {
+  const serverHttp = detectServerHttp();
+  const token = el('instToken').value.trim();
+  const pc = (el('instPCName').value.trim() || 'PC').replace(/[\/\\:,*?"<>|]/g, '_');
+  if (!token) throw new Error('Token wajib diisi.');
+  if (serverHttp.indexOf('localhost') >= 0 || serverHttp.indexOf('127.0.0.1') >= 0)
+    throw new Error('Dashboard ini dibuka via localhost — PC client butuh IP LAN server. Buka dashboard lewat http://IP-SERVER:5173 dulu.');
+  return [
+    '@echo off',
+    'setlocal',
+    'title Warnet Billing - Instal Otomatis Agent Client',
+    '',
+    '>nul 2>&1 net session',
+    'if errorlevel 1 (',
+    '  echo Meminta hak akses administrator...',
+    '  powershell -NoProfile -Command "Start-Process -FilePath \'%~f0\' -Verb RunAs"',
+    '  exit /b',
+    ')',
+    '',
+    'echo ==============================================',
+    'echo   WARNET BILLING CLIENT - INSTAL OTOMATIS',
+    'echo   (double click, koneksi server otomatis)',
+    'echo ==============================================',
+    'echo.',
+    'set SERVER=http://' + location.hostname + ':3000',
+    'set ZIP=%TEMP%\\warnet-client.zip',
+    'set DIR=%TEMP%\\warnet-client-install',
+    '',
+    'echo [1/3] Mengunduh agen dari server...',
+    'powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -Uri \'%SERVER%/agent/billing-client-release.zip\' -OutFile \'%ZIP%\' -UseBasicParsing } catch { exit 1 }"',
+    'if errorlevel 1 (',
+    '  echo.',
+    '  echo [GAGAL] Tidak bisa mengunduh agen.',
+    '  echo Periksa:',
+    '  echo   - PC ini bisa menjangkau server (%SERVER%)',
+    '  echo   - firewall membuka port 3000',
+    '  echo   - release sudah diunggah (lihat dashboard, tab Config)',
+    '  pause',
+    '  exit /b 1',
+    ')',
+    '',
+    'if exist "%DIR%" rmdir /s /q "%DIR%"',
+    'mkdir "%DIR%"',
+    'powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Expand-Archive -Path \'%ZIP%\' -DestinationPath \'%DIR%\' -Force } catch { exit 1 }"',
+    'if errorlevel 1 ( echo [GAGAL] Zip agen rusak. & pause & exit /b 1 )',
+    '',
+    '> "%DIR%\\install.config" (',
+    'echo ServerUrl=ws://' + location.hostname + ':3000/socket.io/',
+    'echo Token=' + token,
+    'echo PCName=' + pc,
+    ')',
+    '',
+    'echo [2/3] Menjalankan instalasi (silent)...',
+    'powershell -NoProfile -ExecutionPolicy Bypass -File "%DIR%\\install-silent.ps1"',
+    '',
+    'echo [3/3] Membersihkan berkas sementara...',
+    'if exist "%ZIP%" del "%ZIP%"',
+    'if exist "%DIR%" rmdir /s /q "%DIR%"',
+    '',
+    'echo.',
+    'echo ==============================================',
+    'echo   SELESAI. PC ini sudah online ke server warnet.',
+    'echo   Cek status di dashboard kasir (harus hijau).',
+    'echo ==============================================',
+    'pause'
+  ].join('\r\n');
+}
+
+function downloadOnlineInstaller() {
+  try {
+    const bat = buildOnlineInstallerBat();
+    const blob = new Blob(['\ufeff' + bat], { type: 'text/bat;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'install-otomatis-' + (el('instPCName').value.trim() || 'PC').replace(/[\/\\:,*?"<>|]/g, '_') + '.bat';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('Installer .bat terdownload — double-click di PC client (setujui UAC)');
+  } catch (err) { showError(err.message); }
+}
 
 function buildInstallerConfig() {
   const server = el('instServerUrl').value.trim();

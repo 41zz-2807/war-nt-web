@@ -41,6 +41,7 @@ docker compose ps                 # 5 container aktif
 - Member: password 4 digit, top-up, saldo menit.
 - Tutup hari: rekap kas per jenis transaksi, menutup semua sesi aktif.
 - PC client online/offline real-time (heartbeat, token auth via WebSocket).
+- Uninstall agent diamankan OTP via Telegram (opsional, mode dev bila nonaktif).
 
 ## Dokumentasi
 

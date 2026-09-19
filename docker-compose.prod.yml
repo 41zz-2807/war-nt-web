@@ -42,8 +42,13 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-development-secret-key-change-in-production}
       NODE_ENV: ${NODE_ENV:-production}
+      # OTP-uninstall via Telegram. Bila dikosongkan, uninstall TANPA OTP (mode dev).
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ADMIN_CHAT_ID: ${TELEGRAM_ADMIN_CHAT_ID:-}
     ports:
       - "3000:3000"   # API + WebSocket untuk agen client PC
+    volumes:
+      - ./server/agent-release:/usr/src/app/agent-release
 
   web:
     build:

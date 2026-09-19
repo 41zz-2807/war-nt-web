@@ -157,6 +157,33 @@ Ulangi untuk user `kasir`. Jangan berbagi akun admin ke kasir.
 - Jika satu PC dicuri/diganti, reset token-nya: `POST /api/pcs/:id/reset-token`
   → update `install.config` PC itu.
 
+### 4.5 Uninstall agent memakai OTP Telegram
+
+Agar agen tidak dibuka/di-uninstall sembarangan dari PC client, uninstaller
+(silent `uninstall.ps1` maupun GUI Inno) meminta **kode OTP 6 digit** yang
+server kirim ke **chat Telegram admin**:
+
+- Setup: buat bot via **@BotFather** → `TELEGRAM_BOT_TOKEN`. Chat tujuan admin:
+  `TELEGRAM_ADMIN_CHAT_ID` (nomor negatif untuk grup, lihat cara dapat ID di
+  bawah). Isi keduanya di `.env` (contoh: `.env.prod.example`).
+- Alur: PC jalankan uninstaller → server `POST /api/otp/request` → bot kirim
+  kode ke Telegram admin → operator sebutkan ke PC / PC pegang HP admin →
+  `POST /api/otp/verify` → uninstall dilanjutkan.
+- Aturan kode: 6 digit, berlaku **5 menit**, sekali pakai, rate-limit **1
+  request/menit per PC mesin**.
+- **Fallback (mode dev):** bila `TELEGRAM_BOT_TOKEN`/`TELEGRAM_ADMIN_CHAT_ID`
+  kosong, `/api/otp/request` mengembalikan `dev_code` di respon dan uninstall
+  lanjut tanpa OTP. Server yang tidak terjangkau juga mengizinkan lanjut.
+- Endpoint: `GET /api/otp/status`, `POST /api/otp/request`,
+  `POST /api/otp/verify`. Daftar kode di tabel `otp_codes`.
+
+Cara dapat chat ID:
+```
+1. Kirim pesan apa pun ke bot kamu (atau grup yang bot di-invite).
+2. GET https://api.telegram.org/bot<TOKEN>/getUpdates
+   → cari "chat":{"id": ...} — negatif (-100xxx) jika grup.
+```
+
 ---
 
 ## 5. Database
@@ -165,7 +192,7 @@ Ulangi untuk user `kasir`. Jangan berbagi akun admin ke kasir.
 
 Dibuat otomatis oleh `server/src/db.ts` saat server pertama kali jalan
 (`CREATE TABLE IF NOT EXISTS`). Tabel: `users`, `pcs`, `vouchers`, `members`,
-`billing_sessions`, `transactions`, `tutup_hari`, `audit_log`.
+`billing_sessions`, `transactions`, `tutup_hari`, `audit_log`, `otp_codes`.
 
 > Perubahan skema TIDAK otomatis meng-update tabel lama. Setelah menarik versi
 > baru, cek rilis — jika ada DDL baru, jalankan ALTER/DROP secara manual
@@ -207,10 +234,18 @@ Alur lengkap di `client-net/installer/README-CLIENT.md`. Inti:
 
 1. Di dashboard: tab **PC / Kartu** → **+ Tambah PC** → buat kartu (mis. `PC-01`).
 2. Klik tombol **Config** di kartu → periksa **ServerUrl** (harus `ws://IP-INTERNAL:3000/socket.io/`), catat **Token**.
-   Atau download **install.config** langsung.
-3. Buat `<folder-release>` = hasil `client-net/installer/build-windows.ps1`.
-4. Di PC client: taruh `install.config` + `install-silent.bat` + folder Release → jalankan (setuju UAC).
-5. Di dashboard, PC langsung hijau ONLINE (heartbeat ≤ 45 detik).
+3. Pilih cara pasang:
+
+   **a. Online installer (sekali klik, sarankan):** build sekali di mesin
+   Windows (`build-windows.ps1`) → zip `billing-client-release.zip` otomatis
+   masuk `server/agent-release/` (folder ter-volume-mount ke container).
+   Di dashboard → **Config** → **Download Instal Otomatis (.bat)** → double-click
+   di PC client → unduh agen dari `:3000`, pasang & online. Cek
+   `http://SERVER-IP:3000/api/installer/status` → `release_ready: true`.
+
+   **b. Manual USB:** download **install.config** → bawa + `Release` +
+   `install-silent.bat` ke PC → jalankan.
+4. Di dashboard, PC langsung hijau ONLINE (heartbeat ≤ 45 detik).
 
 Saat go-live berikutnya: bersihkan 10 PC seed otomatis (`PC-01`..`PC-10`) yang
 tidak dipakai, lalu buat ulang sesuai PC fisik sebenarnya.
@@ -267,6 +302,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 | PC tampil online tapi "mati" 1 menit | Server memindai `last_seen > 45 detik`. Pastikan agen jalan (task scheduler) & tidak ada proxy yang memblok WebSocket. |
 | Timer tidak berjalan | Periksa zona waktu server vs client; `docker logs billing-server` untuk error. |
 | Skema error setelah update | Tabel lama belum di-ALTER/DROP (§5.1). |
+| Uninstall minta OTP tapi Telegram tidak aktif | Itu **normal**: `TELEGRAM_BOT_TOKEN` kosong → server mode dev, uninstaller melanjutkan tanpa OTP. |
+| OTP tidak pernah sampai ke Telegram | Cek `.env` token/chat_id, coba lagi request (rate-limit 1/menit), `docker logs billing-server` untuk error send. |
 | Host `npm run build` gagal (ICU dyld) | JANGAN bangun di host — server selalu lewat Docker (`docker compose up -d --build`). |
 
 ---
@@ -284,6 +321,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 8. [ ] Backup terjadwal aktif + satu restore uji-coba.
 9. [ ] SOP tutup hari disimulasikan sekali penuh (rekap = uang fisik).
 10. [ ] Catatan batasan keamanan telah dipahami (§4.3) — sistem di LAN tepercaya.
+11. [ ] (Opsional) Telegram OTP-diaktifkan: bot + chat ID terisi di `.env`
+      (§4.5), uji request → kode sampai → uninstaller verifikasi.
 
 ---
 

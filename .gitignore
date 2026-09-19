@@ -8,6 +8,9 @@ Release/
 bin/
 obj/
 
+# Artefak build agen untuk online installer (besar, generated tiap build)
+server/agent-release/*.zip
+
 # Environment & secrets (JANGAN commit)
 .env
 .env.*
@@ -17,6 +20,9 @@ obj/
 .DS_Store
 Thumbs.db
 *.log
+
+# Output opencode session
+new-session*.json
 
 # Backup database
 *.sql.gz
